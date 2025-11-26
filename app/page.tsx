@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { RestaurantForm } from "@/components/restaurant-form"
 import { RestaurantList } from "@/components/restaurant-list"
 import { useToast } from "@/hooks/use-toast"
+import { restaurantApi } from "@/api/endpoint"
 
 export type Restaurant = {
   id: number
@@ -15,8 +16,6 @@ export type Restaurant = {
   image: string
 }
 
-const API_BASE_URL = "https://24d5f3f4-0575-41b0-bbf8-780027b63eed.mock.pstmn.io"
-
 export default function RestaurantManagementPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -25,19 +24,8 @@ export default function RestaurantManagementPage() {
   const fetchRestaurants = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/places`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`GET 요청 실패: ${response.status}`)
-      }
-
-      const data = await response.json()
-      setRestaurants(Array.isArray(data) ? data : [])
+      const data = await restaurantApi.getRestaurants()
+      setRestaurants(data)
     } catch (error) {
       console.error("Fetch error:", error)
       toast({
@@ -56,30 +44,15 @@ export default function RestaurantManagementPage() {
 
   const handleAddRestaurant = async (restaurant: Omit<Restaurant, "id">) => {
     try {
-      const newRestaurant = {
-        ...restaurant,
-        id: Date.now(),
-      }
+      const newRestaurant = await restaurantApi.addRestaurant(restaurant)
 
-      const response = await fetch(`${API_BASE_URL}/places`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newRestaurant),
+      // Add to local state immediately (Mock API doesn't persist data)
+      setRestaurants((prev) => [...prev, newRestaurant])
+
+      toast({
+        title: "✨ 등록 완료",
+        description: "맛집이 성공적으로 등록되었습니다.",
       })
-
-      if (response.status === 201 || response.status === 200) {
-        // Add to local state immediately (Mock API doesn't persist data)
-        setRestaurants((prev) => [...prev, newRestaurant])
-
-        toast({
-          title: "✨ 등록 완료",
-          description: "맛집이 성공적으로 등록되었습니다.",
-        })
-      } else {
-        throw new Error(`POST 요청 실패: ${response.status}`)
-      }
     } catch (error) {
       console.error("Add restaurant error:", error)
       toast({
@@ -92,25 +65,15 @@ export default function RestaurantManagementPage() {
 
   const handleDeleteRestaurant = async (id: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/places/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      await restaurantApi.deleteRestaurant(id)
+
+      // Remove from local state immediately
+      setRestaurants((prev) => prev.filter((r) => r.id !== id))
+
+      toast({
+        title: "🗑️ 삭제 완료",
+        description: "맛집이 삭제되었습니다.",
       })
-
-      // Mock API might return 404, but we still delete locally
-      if (response.status === 200 || response.status === 204 || response.status === 404) {
-        // Remove from local state immediately
-        setRestaurants((prev) => prev.filter((r) => r.id !== id))
-
-        toast({
-          title: "🗑️ 삭제 완료",
-          description: "맛집이 삭제되었습니다.",
-        })
-      } else {
-        throw new Error(`DELETE 요청 실패: ${response.status}`)
-      }
     } catch (error) {
       console.error("Delete restaurant error:", error)
       toast({
